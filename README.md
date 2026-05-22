@@ -141,8 +141,3 @@ To import into n8n: open n8n → New Workflow → top right menu → Import from
 9. Submit a test form and verify each node executes correctly
 
 ---
-
-## Author
-
-Built as part of an AI Automation Internship Assignment.  
-GitHub: [your-username](https://github.com/your-username)
