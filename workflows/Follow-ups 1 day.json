@@ -1,0 +1,328 @@
+{
+  "name": "Follow-ups 1 day",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -736,
+        -16
+      ],
+      "id": "ddd6cd51-7327-4351-81f6-03de4f198c44",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "Quick check-in from NorthPeak",
+        "emailType": "text",
+        "message": "=Hi {{ $json.Name }},  \n\nWe noticed you haven't booked your {{ $json.Servie }} consultation yet  — no worries at all.  \nOur team is available 7 days a week and would love to help. \n\nBook here: https://calendly.com/biswadeepmazumder29/30min \nIf your issue has been resolved, just let us know! \n\n— The NorthPeak Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        -16
+      ],
+      "id": "559735aa-92a7-411b-928f-0625e1ba8cd3",
+      "name": "Send follow-up mail to client",
+      "webhookId": "c04dc2b2-15ef-4fd0-81e1-7afe44f77f2c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTw62QO6D0nKNyIi",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8",
+          "mode": "list",
+          "cachedResultName": "NorthPeak Lead Pipeline",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "=Status",
+              "lookupValue": "New Lead"
+            },
+            {
+              "lookupColumn": "Follow-up 2 Sent"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -496,
+        -16
+      ],
+      "id": "d47ef4a0-dda0-44c2-93f2-7e28bbae593b",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h2pb6eGrrZpRUXB5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nconst now = new Date();\n\nreturn rows.filter(row => {\n  const submitted = new Date(row.json.Timestamp);\n  const hoursElapsed = (now - submitted) / (1000 * 60 * 60);\n  return hoursElapsed >= 24; // change to 24 for second workflow\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        -16
+      ],
+      "id": "20dd9e34-0d4f-4dcc-878a-f5f27d30dbc9",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8",
+          "mode": "list",
+          "cachedResultName": "NorthPeak Lead Pipeline",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Code in JavaScript').item.json.Email }}",
+            "Follow-up 1 Sent": "",
+            "Follow-up 2 Sent": "Sent"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Servie",
+              "displayName": "Servie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgency Score",
+              "displayName": "Urgency Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Quality",
+              "displayName": "Lead Quality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Follow-up 1 Sent",
+              "displayName": "Follow-up 1 Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Follow-up 2 Sent",
+              "displayName": "Follow-up 2 Sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        112,
+        -16
+      ],
+      "id": "00bde3fe-c200-471a-a3ee-a4bf87f4588d",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h2pb6eGrrZpRUXB5",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Send follow-up mail to client": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send follow-up mail to client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "b89f36ea-4d14-4e37-ae96-a0ba7ff97517",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1ede3fba223e4b816638ed919b027d5bf0cbbb55745b263d420056df059e673e"
+  },
+  "id": "uzYaY2EQ7H2Bsnz4",
+  "tags": []
+}

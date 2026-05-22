@@ -1,0 +1,623 @@
+{
+  "name": "NorthPeak Lead Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "b933be84-af22-4b14-aad5-ea8cb6003543",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -32
+      ],
+      "id": "7c8f1f0f-8d2a-452a-bf80-10b904c758dd",
+      "name": "Data From Tally",
+      "webhookId": "b933be84-af22-4b14-aad5-ea8cb6003543"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0.2,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a lead qualification assistant for NorthPeak Heating & Cooling. Your only job is to analyze lead data and return a single valid JSON object. Never write prose, explanations, or markdown. Return only the JSON object, nothing else.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this lead and return ONLY a JSON object with exactly these fields:\\n\\n- urgency_score: integer 1–10. Use this rubric: start at 5, then adjust — ASAP urgency (+2), 'just exploring' (−2), phone number provided (+1), clear budget range (+1), read the description field as natural language. If it is vague or generic (e.g. 'need help', 'interested', 'fix my AC') → +0. If it gives specific context (what broke, when, how it's affecting them) → +1. If it contains urgent language (e.g. 'no heat', 'freezing', 'can't work', 'deadline', 'emergency') → +2. Never award +1 and +2 together — pick the higher one only. Cap at 10, floor at 1.\\n- lead_quality: exactly one of 'high', 'medium', or 'low'. High = specific need + budget + phone + detailed description. Low = vague need, no phone, no budget.\\n- service_type: 3–5 word string describing what they need.\\n- recommended_action: one prescriptive sentence telling the sales rep what to do and when (e.g. 'Call within 1 hour — no heat in winter, high close probability' or 'Add to 7-day drip — early stage, not ready to buy yet').\\n- score_reason: one sentence explaining the key signals that drove this urgency score.\\n- summary: exactly 2 sentences — what this lead needs, and why they are or aren't a strong opportunity.\\n\\nLead data:\\nName: {{ $json.name }}\\nEmail: {{ $json.email }}\\nPhone: {{ $json.phone }}\\nService needed: {{ $json.service }}\\nTimeline: {{ $json.urgency }}\\nBudget: {{ $json.budget }}\\nCity: {{ $json.city }}\\nDescription: {{ $json.description }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        -32
+      ],
+      "id": "b4e8c3bb-ac2d-4b31-b2b5-d34d17df4c1b",
+      "name": "Calling Groq",
+      "credentials": {
+        "openAiApi": {
+          "id": "NrxWqFYm4R4cx9JC",
+          "name": "OpenAI account"
+        },
+        "groqApi": {
+          "id": "nzES2O0NhpJMVbdj",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fields = $input.first().json.body.data.fields;\n\n// Helper to extract value by label\nfunction getVal(label) {\n  const field = fields.find(f => f.label === label);\n  if (!field) return \"\";\n  \n  // For multiple choice (has options array), resolve the selected ID to text\n  if (field.options && field.value) {\n    const selected = Array.isArray(field.value) ? field.value : [field.value];\n    return selected\n      .map(id => field.options.find(o => o.id === id)?.text || id)\n      .join(\", \");\n  }\n  \n  return field.value || \"\";\n}\n\nreturn [{\n  json: {\n    name:        getVal(\"Full Name\"),\n    email:       getVal(\"Email address\"),\n    phone:       getVal(\"Phone Number\"),\n    service:     getVal(\"Service Needed\"),\n    urgency:     getVal(\"Urgency Dropdown\"),\n    budget:      getVal(\"Budget Range\"),\n    city:        getVal(\"Location - City / ZIP\"),\n    description: getVal(\"Brief description\"),\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -32
+      ],
+      "id": "ca6e6a90-9e1f-42df-98f2-36688f811280",
+      "name": "Simplifying Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\n\n// Strip markdown backticks if present\nconst cleaned = raw.replace(/```json|```/g, '').trim();\n\n// Parse into actual JSON object\nconst parsed = JSON.parse(cleaned);\n\nreturn {\n  urgency_score: parsed.urgency_score,\n  lead_quality: parsed.lead_quality,\n  service_type: parsed.service_type,\n  recommended_action: parsed.recommended_action,\n  summary: parsed.summary\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -32
+      ],
+      "id": "e69a5678-04dd-4d72-8a12-0f2c1715b9f2",
+      "name": "Simplifying Insites"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "04e10539-a401-435b-8cd1-951de216bfd3",
+              "leftValue": "={{ $json.urgency_score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        -32
+      ],
+      "id": "92055f48-d316-4d91-ae53-638d23524e87",
+      "name": "How much urgent"
+    },
+    {
+      "parameters": {
+        "chatId": "1226962338",
+        "text": "=👤 Name: {{ $('Simplifying Data').item.json.name }}\n📧 Email: {{ $('Simplifying Data').item.json.email }}\n📞 Phone: {{ $('Simplifying Data').item.json.phone }}\n📍 City: {{ $('Simplifying Data').item.json.city }}\n\n🔧 Service: {{ $('Simplifying Insites').item.json.service_type }}\n⚡ Urgency: {{ $('Simplifying Insites').item.json.urgency_score }}/10\n📊 Quality: {{ $('Simplifying Insites').item.json.lead_quality }}\n\n📝 Summary: {{ $('Simplifying Insites').item.json.summary }}\n✅ Action: {{ $('Simplifying Insites').item.json.recommended_action }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1120,
+        -32
+      ],
+      "id": "34499e53-ca21-41ce-87ec-5d2316ff08f5",
+      "name": "Notify the Team",
+      "webhookId": "730580c6-8c54-4342-86c7-e7cb8e957ddf",
+      "credentials": {
+        "telegramApi": {
+          "id": "XYZT6x3KmUDOotqZ",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Simplifying Data').item.json.email }}",
+        "subject": "We received your request — NorthPeak Heating & Cooling",
+        "emailType": "text",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        160
+      ],
+      "id": "92823a61-c61f-4907-bf63-63e8e8965c9f",
+      "name": "Send mail to client",
+      "webhookId": "d2c9d3be-35a3-4f81-b7c1-87bb7807483e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTw62QO6D0nKNyIi",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a customer service rep at NorthPeak Heating & Cooling. Write short to the point emails. Do not write long overly long mails, have some structure.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Write a short 2-paragraph response email to a lead with these details:\\n\\nName: {{ $('Simplifying Data').item.json.name }}\\nService needed: {{ $('Simplifying Insites').item.json.service_type }}\\nUrgency score: {{ $('Simplifying Insites').item.json.urgency_score }}/10\\nIssue description: {{ $('Simplifying Data').item.json.description }}\\nCity: {{ $('Simplifying Data').item.json.city }}\\n\\nParagraph 1: Acknowledge their specific issue warmly\\nParagraph 2: Tell them what happens next\\nParagraph 3: Invite them to book via Calendly https://calendly.com/biswadeepmazumder29/30min\\n\\nSign off as 'The NorthPeak Team'. Sound human, not like a template.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        160
+      ],
+      "id": "43650f4b-7fea-462b-85b5-073571c0f958",
+      "name": "Writing natural email",
+      "credentials": {
+        "openAiApi": {
+          "id": "NrxWqFYm4R4cx9JC",
+          "name": "OpenAI account"
+        },
+        "groqApi": {
+          "id": "nzES2O0NhpJMVbdj",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.choices[0].message.content;\nreturn { email_body: raw.replace(/```/g, '').trim() };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        160
+      ],
+      "id": "f4e5352b-6090-47f3-97f7-f0cd9615e887",
+      "name": "Getting the body of email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Simplifying Data').item.json.email }}",
+        "subject": "We received your request — NorthPeak Heating & Cooling",
+        "emailType": "text",
+        "message": "=Hi {{ $('Simplifying Data').item.json.name }},\n\nThank you for contacting NorthPeak Heating & Cooling.\n\nWe can see your situation is urgent and we're treating it \nas a priority. A member of our team will be calling you \nat {{ $('Simplifying Data').item.json.phone }} within the next 30 minutes.\n\nIf you need to reach us immediately:\n📞 (555) 000-0000\n\n— The NorthPeak Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -224
+      ],
+      "id": "7dc90b78-bd16-4860-8066-518b3a99e61a",
+      "name": "Relay to Urgent Leads",
+      "webhookId": "95225abc-b54f-4645-ae99-e67a066c44c8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "eTw62QO6D0nKNyIi",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8",
+          "mode": "list",
+          "cachedResultName": "NorthPeak Lead Pipeline",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now }}",
+            "Name": "={{ $('Simplifying Data').item.json.name }}",
+            "Email": "={{ $('Simplifying Data').item.json.email }}",
+            "Phone": "={{ $('Simplifying Data').item.json.phone }}",
+            "Servie": "={{ $('Simplifying Insites').item.json.service_type }}",
+            "Urgency Score": "={{ $('Simplifying Insites').item.json.urgency_score }}",
+            "Lead Quality": "={{ $('Simplifying Insites').item.json.lead_quality }}",
+            "Notes": "={{ $('Simplifying Insites').item.json.summary }}",
+            "Status": "Urgent Lead"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Servie",
+              "displayName": "Servie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgency Score",
+              "displayName": "Urgency Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Quality",
+              "displayName": "Lead Quality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        -32
+      ],
+      "id": "9a6ffe71-0f15-4594-92d8-90a3da3c02ce",
+      "name": "Add Urgent Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h2pb6eGrrZpRUXB5",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8",
+          "mode": "list",
+          "cachedResultName": "NorthPeak Lead Pipeline",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/15TPSoLQpRe5cqAg7oPsqVibTUxk2T5l8Fd8Tu44G4n8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now }}",
+            "Name": "={{ $('Simplifying Data').item.json.name }}",
+            "Email": "={{ $('Simplifying Data').item.json.email }}",
+            "Phone": "={{ $('Simplifying Data').item.json.phone }}",
+            "Servie": "={{ $('Simplifying Insites').item.json.service_type }}",
+            "Urgency Score": "={{ $('Simplifying Insites').item.json.urgency_score }}",
+            "Lead Quality": "={{ $('Simplifying Insites').item.json.lead_quality }}",
+            "Status": "New Lead",
+            "Notes": "={{ $('Simplifying Insites').item.json.summary }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Servie",
+              "displayName": "Servie",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Urgency Score",
+              "displayName": "Urgency Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead Quality",
+              "displayName": "Lead Quality",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1792,
+        160
+      ],
+      "id": "5a72b410-61b3-468a-92b2-438a0fd28b73",
+      "name": "Add New Lead",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "h2pb6eGrrZpRUXB5",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Data From Tally": {
+      "main": [
+        [
+          {
+            "node": "Simplifying Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calling Groq": {
+      "main": [
+        [
+          {
+            "node": "Simplifying Insites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simplifying Data": {
+      "main": [
+        [
+          {
+            "node": "Calling Groq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simplifying Insites": {
+      "main": [
+        [
+          {
+            "node": "How much urgent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "How much urgent": {
+      "main": [
+        [
+          {
+            "node": "Notify the Team",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Relay to Urgent Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Writing natural email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify the Team": {
+      "main": [
+        [
+          {
+            "node": "Add Urgent Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send mail to client": {
+      "main": [
+        [
+          {
+            "node": "Add New Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writing natural email": {
+      "main": [
+        [
+          {
+            "node": "Getting the body of email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Getting the body of email": {
+      "main": [
+        [
+          {
+            "node": "Send mail to client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add New Lead": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e97d80c2-8e5f-4986-83d7-3d8fefed15e4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1ede3fba223e4b816638ed919b027d5bf0cbbb55745b263d420056df059e673e"
+  },
+  "id": "STTQMoSEi1xnZULR",
+  "tags": []
+}
