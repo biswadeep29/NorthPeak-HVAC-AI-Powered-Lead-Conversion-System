@@ -4,6 +4,8 @@ An end-to-end lead automation pipeline built for NorthPeak Heating & Cooling, a 
 
 ---
 
+## Video Explanation: https://www.loom.com/share/051909177b894a57b98eb1e18c1078a2
+
 ## What It Does
 
 - Captures leads instantly from a Tally form via webhook
@@ -17,6 +19,8 @@ An end-to-end lead automation pipeline built for NorthPeak Heating & Cooling, a 
 ---
 
 ## System Architecture
+
+![NorthPeak Workflow](docs/workflow.png)
 
 ```
 Tally Form Submission
